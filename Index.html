@@ -1,0 +1,78 @@
+import pandas as pd
+import matplotlib.pyplot as plt  # For optional visualizations
+
+# Step 1: Load the CSV file
+# Replace 'medicaid_claims.csv' with your actual file path
+df = pd.read_csv('medicaid_claims.csv')
+
+# Display basic info about the dataset
+print("Dataset Overview:")
+print(df.head())  # First 5 rows
+print(f"Shape: {df.shape}")  # Number of rows and columns
+print(df.info())  # Data types and missing values
+
+# Step 2: Data Cleaning
+# Handle missing values (e.g., fill or drop)
+df.dropna(subset=['total_paid', 'secondary_payment'], inplace=True)  # Drop rows with missing key payments
+
+# Convert date column to datetime if present (adjust column name as needed)
+if 'date' in df.columns:
+    df['date'] = pd.to_datetime(df['date'])
+
+# Ensure numeric columns are properly typed
+df['primary_payment'] = pd.to_numeric(df['primary_payment'], errors='coerce')
+df['secondary_payment'] = pd.to_numeric(df['secondary_payment'], errors='coerce')
+df['total_paid'] = pd.to_numeric(df['total_paid'], errors='coerce')
+
+# Step 3: Basic Analysis
+# Total claims and payments
+total_claims = len(df)
+total_primary_paid = df['primary_payment'].sum()
+total_secondary_paid = df['secondary_payment'].sum()
+total_overall_paid = df['total_paid'].sum()
+
+print("\nSummary Statistics:")
+print(f"Total Claims: {total_claims}")
+print(f"Total Primary Payments: ${total_primary_paid:,.2f}")
+print(f"Total Secondary Payments: ${total_secondary_paid:,.2f}")
+print(f"Total Overall Payments: ${total_overall_paid:,.2f}")
+
+# Average payments
+avg_secondary = df['secondary_payment'].mean()
+print(f"Average Secondary Payment per Claim: ${avg_secondary:,.2f}")
+
+# Step 4: Derivations and Insights
+# Group by provider (assuming 'provider' column exists)
+if 'provider' in df.columns:
+    provider_summary = df.groupby('provider').agg({
+        'secondary_payment': ['sum', 'count', 'mean']
+    }).sort_values(('secondary_payment', 'sum'), ascending=False)
+    print("\nTop Providers by Secondary Payments:")
+    print(provider_summary.head(10))
+
+# Monthly trends (if date column exists)
+if 'date' in df.columns:
+    df['month'] = df['date'].dt.to_period('M')
+    monthly_trends = df.groupby('month')['secondary_payment'].sum()
+    print("\nMonthly Secondary Payments:")
+    print(monthly_trends)
+    
+    # Optional: Plot trends
+    monthly_trends.plot(kind='line', title='Monthly Secondary Payments')
+    plt.ylabel('Total Secondary Payments ($)')
+    plt.show()
+
+# Identify high-cost claims (e.g., top 5% by secondary payment)
+high_cost_threshold = df['secondary_payment'].quantile(0.95)
+high_cost_claims = df[df['secondary_payment'] > high_cost_threshold]
+print(f"\nHigh-Cost Claims (Top 5%): {len(high_cost_claims)} claims")
+print(high_cost_claims[['claim_id', 'secondary_payment']].head())
+
+# Step 5: Export Results (optional)
+# Save summary to a new CSV
+summary_df = pd.DataFrame({
+    'Metric': ['Total Claims', 'Total Primary Paid', 'Total Secondary Paid', 'Total Overall Paid', 'Avg Secondary per Claim'],
+    'Value': [total_claims, total_primary_paid, total_secondary_paid, total_overall_paid, avg_secondary]
+})
+summary_df.to_csv('medicaid_analysis_summary.csv', index=False)
+print("\nSummary exported to 'medicaid_analysis_summary.csv'")
